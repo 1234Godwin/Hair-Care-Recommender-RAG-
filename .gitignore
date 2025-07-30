@@ -1,0 +1,12 @@
+# Ignore large folders and files
+huggingface/
+flan_t5_large_local/
+document_folder/
+hair_care_chroma_db/
+.gradio/
+*.safetensors
+*.pt
+*.bin
+*.pdf
+*.json
+*.db
