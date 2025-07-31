@@ -16,7 +16,6 @@ from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
 
 
 
-
 # Base blog page
 base_url = "https://skinkraft.com/blogs/articles"
 
@@ -32,7 +31,7 @@ for a_tag in soup.find_all("a", href=True):
     if "/blogs/articles/" in full_url and full_url not in article_links:
         article_links.append(full_url)
 
-print(f"✅ Found {len(article_links)} article links.")
+print(f" Found {len(article_links)} article links.")
 
 
 # Base path to crawl from
@@ -52,7 +51,7 @@ for a_tag in soup.find_all("a", href=True):
     if full_url.startswith(base_url) and full_url not in hair_links:
         hair_links.append(full_url)
 
-print(f"✅ Found {len(hair_links)} hair-related URLs.")
+print(f" Found {len(hair_links)} hair-related URLs.")
 
 
 
@@ -93,8 +92,8 @@ hair_urls.extend(['https://www.verywellhealth.com/wet-dandruff-treatment-5197087
             'https://www.allure.com/story/the-science-of-beauty-the-complete-guide-to-scalp-care'])
 
 
-print(f"✅ Found {len(hair_links)} hair-related URLs on Hair care page.")
-print(f"✅ {len(hair_urls)} collated URLs.")
+print(f" Found {len(hair_links)} hair-related URLs on Hair care page.")
+print(f" {len(hair_urls)} collated URLs.")
 
 
 # this combines all the urls retrieved from both websites
@@ -117,13 +116,13 @@ def fetch_clean_text_from_url(url):
 
         return Document(page_content=text, metadata={"source": url})
     except Exception as e:
-        print(f"❌ Failed to fetch {url}: {e}")
+        print(f" Failed to fetch {url}: {e}")
         return None
 
 # Scrape all documents from URLs
 web_docs = [doc for url in all_scraped_urls if (doc := fetch_clean_text_from_url(url))]
 
-print(f"✅ Total successfully scraped documents: {len(web_docs)}")
+print(f" Total successfully scraped documents: {len(web_docs)}")
 
 
 
@@ -156,15 +155,10 @@ local_docs = loader.load()
 for doc in local_docs:
     doc.page_content = clean_text(doc.page_content)
 
-print(f"✅ Loaded and cleaned {len(local_docs)} documents from {urls}")
-
-
+print(f" Loaded and cleaned {len(local_docs)} documents from {urls}")
 
 # Combine both sources
 all_docs = local_docs + web_docs
-
-
-
 
 splitter = RecursiveCharacterTextSplitter(
     chunk_size=1000,
@@ -173,29 +167,29 @@ splitter = RecursiveCharacterTextSplitter(
 )
 
 all_splits = splitter.split_documents(all_docs)
-print(f"🧩 Total document chunks: {len(all_splits)}")
+print(f" Total document chunks: {len(all_splits)}")
 
 
+def load_vector_store():
+    embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2")
+    return Chroma(
+        collection_name="hair_recommender_collection",
+        embedding_function=embeddings,
+        persist_directory="chroma_db"
+    )
 
+vector_store = load_vector_store()
 
-
-embeddings = HuggingFaceEmbeddings(model_name= "all-mpnet-base-v2")
-
-vector_store = Chroma(
-    collection_name="hair_recommender_collection",
-    embedding_function=embeddings,
-    persist_directory="chroma_db"
-)# hair_venv\Scripts\activate
-
-# jupyter nbconvert --to python hair_care.ipynb
 vector_store.add_documents(all_splits)
 
-print("✅ Vector store successfully built and saved.")#hair_venv\Scripts\activate
+print(" Vector store successfully built and saved.")
 
 
+def load_model():
+    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-large")
+    model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-large")
+    return tokenizer, model
 
-tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
-model = AutoModelForSeq2SeqLM.from_pretrained("google/flan-t5-small")
 
 # --- Truncation Helper ---
 def truncate_input(text, tokenizer, max_tokens=512):
@@ -204,14 +198,16 @@ def truncate_input(text, tokenizer, max_tokens=512):
     return tokenizer.decode(tokens, skip_special_tokens=True)
 
 # --- HuggingFace Pipeline ---
+tokenizer, model = load_model()
 generator = pipeline(
     "text2text-generation",
     model=model,
     tokenizer=tokenizer,
-    max_length=256,  # Output length
+    max_length=256,
     repetition_penalty=1.2,
 )
 llm = HuggingFacePipeline(pipeline=generator)
+
 
 # --- Build RAG Chain with Retriever ---
 rag_chain = RetrievalQA.from_chain_type(
@@ -219,7 +215,7 @@ rag_chain = RetrievalQA.from_chain_type(
     retriever=vector_store.as_retriever(search_type="mmr", search_kwargs={'k': 2}),
     return_source_documents=True
 )
-print("✅ RetrievalQA pipeline successfully loaded.")
+print(" RetrievalQA pipeline successfully loaded.")
 
 # --- System Prompt ---
 system_prompt = (
@@ -230,8 +226,6 @@ system_prompt = (
     "Do not hallucinate. If the answer is not found in the context, reply: 'I'm not sure based on the current information.'"
 )
 print('all ran successfully')
-
-
 
 
 # --- Prompt Formatter ---
@@ -422,6 +416,5 @@ with gr.Blocks(title="AI HAIR CARE RECOMMENDER", css="""
         label="Example Questions"
     )
 
-if __name__ == "__main__":
-    demo.launch(server_name="0.0.0.0", server_port=8080)
+
 
