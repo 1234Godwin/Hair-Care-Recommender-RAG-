@@ -416,5 +416,8 @@ with gr.Blocks(title="AI HAIR CARE RECOMMENDER", css="""
         label="Example Questions"
     )
 
+if __name__ == "__main__":
+    demo.launch()
+
 
 
